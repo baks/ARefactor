@@ -17,7 +17,7 @@
          </menu>
          <action
                label="Creation Methods"
-               class="arefactor.popup.actions.CreationMethodsAction"
+               class="pk.ztp.skab.arefactor.popup.actions.CreationMethodsAction"
                menubarPath="ARefactor.menu1/group1"
                enablesFor="1"
                id="ARefactor.newAction">

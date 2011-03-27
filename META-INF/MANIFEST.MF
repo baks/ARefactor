@@ -3,9 +3,10 @@ Bundle-ManifestVersion: 2
 Bundle-Name: ARefactor
 Bundle-SymbolicName: ARefactor; singleton:=true
 Bundle-Version: 1.0.0.qualifier
-Bundle-Activator: pk.ztp.skab.arefactor.Activator
+Bundle-Activator: pk.ztp.skab.arefactor.AutomaticRefactorPlugin
 Require-Bundle: org.eclipse.ui,
  org.eclipse.core.runtime,
  org.eclipse.core.resources
 Bundle-ActivationPolicy: lazy
 Bundle-RequiredExecutionEnvironment: JavaSE-1.6
+Bundle-ClassPath: lib/log4j-1.2.16.jar
