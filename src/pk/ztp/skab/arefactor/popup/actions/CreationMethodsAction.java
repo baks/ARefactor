@@ -89,7 +89,10 @@ public class CreationMethodsAction implements IWorkbenchWindowActionDelegate
 				}
 			});
 		}
-		run(new CreationMethodsWizard(new CreationMethodsRefactoring(), "Baks - test",search.getClassessWithConstructors()),"Baks - test");
+		CreationMethodsRefactoring cmr=new CreationMethodsRefactoring();
+		cmr.setJavaProject(project);
+		cmr.setClassConstructors(search.getClassessWithConstructors());
+		run(new CreationMethodsWizard(cmr, "Baks - test",search.getClassessWithConstructors()),"Baks - test");
 	}
 	
 	public void run(RefactoringWizard wizard, String dialogTitle) {

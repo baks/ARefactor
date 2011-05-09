@@ -10,9 +10,9 @@ import org.eclipse.ltk.ui.refactoring.RefactoringWizard;
 
 public class CreationMethodsWizard extends RefactoringWizard {
 
-	private LinkedHashMap<IType,ArrayList<IMethod>> constructors;
+	private LinkedHashMap<IType,LinkedHashMap<IMethod,String>> constructors;
 	
-	public CreationMethodsWizard(Refactoring refactoring, String pageTitle, LinkedHashMap<IType, ArrayList<IMethod>> constructors) 
+	public CreationMethodsWizard(Refactoring refactoring, String pageTitle, LinkedHashMap<IType, LinkedHashMap<IMethod,String>> constructors) 
 	{
 		super(refactoring, DIALOG_BASED_USER_INTERFACE | PREVIEW_EXPAND_FIRST_NODE);
 		setDefaultPageTitle(pageTitle);

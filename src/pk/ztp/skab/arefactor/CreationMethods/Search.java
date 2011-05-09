@@ -36,7 +36,7 @@ public class Search
 	private CountingSearchRequestor searchRequestor;
 	private SearchEngine searchEngine=new SearchEngine();
 	private ArrayList<IMethod> constructorsForClass;
-	private LinkedHashMap<IType, ArrayList<IMethod>> classessWithConstructors;
+	private LinkedHashMap<IType, LinkedHashMap<IMethod,String>> classessWithConstructors;
 	
 	public Search(IJavaProject javaProject)
 	{
@@ -45,7 +45,7 @@ public class Search
 		allUnitsInProject=new ArrayList<ICompilationUnit>();
 		searchRequestor=new CountingSearchRequestor();
 		proposedClassesToRefactorUsingCreationMethods=new ArrayList<IType>();
-		classessWithConstructors=new LinkedHashMap<IType, ArrayList<IMethod>>();
+		classessWithConstructors=new LinkedHashMap<IType, LinkedHashMap<IMethod,String>>();
 		try 
 		{
 			this.packageFragments=javaProject.getPackageFragments();
@@ -94,7 +94,7 @@ public class Search
 					{
 						int count=0;
 						ARefactorLogger.getInstance().log(Level.ALL,"Searching constructors in class : " + type.getElementName());
-						constructorsForClass=new ArrayList<IMethod>();
+						LinkedHashMap<IMethod,String> constructorsForClass=new LinkedHashMap<IMethod, String>();
 						for(IMethod method : type.getMethods())
 						{
 							ARefactorLogger.getInstance().log(Level.ALL,"Checking if method is constructor");
@@ -102,7 +102,7 @@ public class Search
 							{
 								if(CheckIfClassConstructorAreReferenced(method,type))
 								{
-									constructorsForClass.add(method);
+									constructorsForClass.put(method,"");
 									count++;
 								}
 							}
@@ -143,13 +143,27 @@ public class Search
 		else
 			return false;
 	}
+	
+	public void searchProjectForReferences(SearchPattern pattern,SearchRequestor requestor)
+	{
+		//SearchPattern pattern=SearchPattern.createPattern(method, IJavaSearchConstants.REFERENCES);
+		try 
+		{
+			searchEngine.search(pattern, new SearchParticipant[] { SearchEngine.getDefaultSearchParticipant()}, 
+					this.projectSearchScope, requestor, null);
+		} 
+		catch (CoreException e) 
+		{
+			e.printStackTrace();
+		}
+	}
 
-	public LinkedHashMap<IType, ArrayList<IMethod>> getClassessWithConstructors() {
+	public LinkedHashMap<IType, LinkedHashMap<IMethod, String>> getClassessWithConstructors() {
 		return classessWithConstructors;
 	}
 
 	public void setClassessWithConstructors(
-			LinkedHashMap<IType, ArrayList<IMethod>> classessWithConstructors) {
+			LinkedHashMap<IType, LinkedHashMap<IMethod, String>> classessWithConstructors) {
 		this.classessWithConstructors = classessWithConstructors;
 	}
 }
