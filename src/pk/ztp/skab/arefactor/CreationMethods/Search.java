@@ -157,6 +157,19 @@ public class Search
 			e.printStackTrace();
 		}
 	}
+	
+	public void searchProjectForReferences(SearchPattern pattern,SearchRequestor requestor, IJavaSearchScope scope)
+	{
+		try 
+		{
+			searchEngine.search(pattern, new SearchParticipant[] { SearchEngine.getDefaultSearchParticipant()}, 
+					scope, requestor, null);
+		} 
+		catch (CoreException e) 
+		{
+			e.printStackTrace();
+		}
+	}
 
 	public LinkedHashMap<IType, LinkedHashMap<IMethod, String>> getClassessWithConstructors() {
 		return classessWithConstructors;

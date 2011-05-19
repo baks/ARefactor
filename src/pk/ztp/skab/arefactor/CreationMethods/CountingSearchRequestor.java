@@ -12,16 +12,17 @@ import pk.ztp.skab.arefactor.Logger.ARefactorLogger;
 
 public class CountingSearchRequestor extends SearchRequestor 
 {
-	private boolean hasMatches;
+	private boolean hasMatches=false;
 	private String constructorClass;
 	
 	@Override
 	public void acceptSearchMatch(SearchMatch arg0) throws CoreException 
 	{
-		hasMatches=true;
 		IJavaElement element=(IJavaElement) arg0.getElement();
-		if(element.getElementName().equals(constructorClass))
+		if(element.getElementName().equals(constructorClass) && hasMatches!=true)
 			hasMatches=false;
+		else
+			hasMatches=true;
 		
 		if(hasMatches==true)
 			ARefactorLogger.getInstance().log(Level.ALL,"Found in element :" + arg0.getElement().toString());

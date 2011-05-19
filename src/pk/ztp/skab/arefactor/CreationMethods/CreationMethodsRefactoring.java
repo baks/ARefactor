@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 
+import javax.lang.model.type.PrimitiveType;
+
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IResource;
@@ -18,6 +20,7 @@ import org.eclipse.core.runtime.Assert;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.core.runtime.SubProgressMonitor;
 import org.eclipse.core.runtime.jobs.ISchedulingRule;
@@ -48,6 +51,7 @@ import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTParser;
 import org.eclipse.jdt.core.dom.ASTRequestor;
+import org.eclipse.jdt.core.dom.ASTVisitor;
 import org.eclipse.jdt.core.dom.AbstractTypeDeclaration;
 import org.eclipse.jdt.core.dom.AnonymousClassDeclaration;
 import org.eclipse.jdt.core.dom.Block;
@@ -101,10 +105,12 @@ public class CreationMethodsRefactoring extends Refactoring {
 
 	private LinkedHashMap<IType,LinkedHashMap<IMethod,String>> classConstructors;
 	private LinkedHashMap<IMethod,MethodDeclaration> creationMethods=new LinkedHashMap<IMethod, MethodDeclaration>();
+	private LinkedHashMap<MethodDeclaration,TypeDeclaration> creationMethodsWithTypeDeclaration=new LinkedHashMap<MethodDeclaration, TypeDeclaration>();
 	private Map<ICompilationUnit, TextFileChange> codeChanges= new HashMap<ICompilationUnit, TextFileChange>();
+	private LinkedHashMap<CompilationUnit,ICompilationUnit> compilationUnits = new LinkedHashMap<CompilationUnit,ICompilationUnit>();
 	private IJavaProject javaProject;
 	private IProgressMonitor monitor;
-	private LinkedHashMap<IType,ArrayList<IMethod>> constructorsToChangeToProtected;
+	private LinkedHashMap<IType,ArrayList<IMethod>> constructorsToChangeToProtected=new LinkedHashMap<IType, ArrayList<IMethod>>();
 	
 	@Override
 	public RefactoringStatus checkFinalConditions(IProgressMonitor arg0)
@@ -125,7 +131,6 @@ public class CreationMethodsRefactoring extends Refactoring {
 					catch (CoreException exception) 
 					{
 						exception.toString();
-						//RefactoringPlugin.log(exception);
 					}
 				}
 			};
@@ -300,12 +305,15 @@ public class CreationMethodsRefactoring extends Refactoring {
 					
 					md.setBody(methodBlock);
 					
-					AbstractTypeDeclaration declaration= (AbstractTypeDeclaration) typeToDeclaration(typeToChange, node);
-					ChildListPropertyDescriptor descriptor= typeToBodyDeclarationProperty(typeToChange, node);
 					
-					astRewrite.getListRewrite(declaration, descriptor).insertLast(md, null);
+					
+					//AbstractTypeDeclaration declaration= (AbstractTypeDeclaration) typeToDeclaration(typeToChange, node);
+					//ChildListPropertyDescriptor descriptor= typeToBodyDeclarationProperty(typeToChange, node);
+					
+					//astRewrite.getListRewrite(declaration, descriptor).insertLast(md, null);
 					
 					creationMethods.put(method, md);
+					creationMethodsWithTypeDeclaration.put(md, td);
 					
 				}
 				
@@ -326,7 +334,7 @@ public class CreationMethodsRefactoring extends Refactoring {
 					status.merge(rewriteMethodInvocation(requestor, astRewrite, importRewrite, (MethodInvocation) result));
 			}
 		}*/
-		rewriteAST(unit, astRewrite, importRewrite);
+		//rewriteAST(unit, astRewrite, importRewrite);
 	}
 	
 	private void copyMethodArguments(ImportRewrite rewrite,IMethod method,IMethodBinding methodBinding,
@@ -382,8 +390,334 @@ public class CreationMethodsRefactoring extends Refactoring {
 		
 	}
 	
+	@SuppressWarnings("restriction")
 	private void CheckConstructors() 
 	{
+		for(IType type : classConstructors.keySet())
+		{
+			LinkedHashMap<IMethod,String> constrs=classConstructors.get(type);
+			for(IMethod constr : constrs.keySet())
+			{
+				if(CheckIfConstructorIfSubsetOfOther(constr,constrs.keySet()))
+				{
+					ICompilationUnit cu=constr.getCompilationUnit();
+					for(CompilationUnit unit : compilationUnits.keySet())
+					{
+						if(compilationUnits.get(unit).equals(cu))
+						{
+							try 
+							{
+								ASTNode result = NodeFinder.perform(unit,constr.getSourceRange());
+								
+								if(result instanceof MethodDeclaration)
+								{
+									ASTRewrite rewrite=ASTRewrite.create(unit.getAST());
+									ImportRewrite importRewrite= ImportRewrite.create(cu, true);
+									
+									MethodDeclaration md=(MethodDeclaration)result;
+									
+									
+									TypeDeclaration td=(TypeDeclaration) getParent(md, TypeDeclaration.class);
+									
+									ChildListPropertyDescriptor descriptor=null;
+									if (td instanceof AbstractTypeDeclaration)
+										descriptor= ((AbstractTypeDeclaration) td).getBodyDeclarationsProperty();
+									
+									//rewrite.getListRewrite(td,descriptor).replace(cic, mi, null);
+									//rewrite.getListRewrite(td, descriptor).remove(cic, null);
+									//rewrite.getListRewrite(td, descriptor).insertLast(mi, null);
+								
+									
+									if(constructorsToChangeToProtected.get(type)!=null && constructorsToChangeToProtected.get(type).contains(constr))
+									{
+										List<Modifier> l=md.modifiers();
+										//l.add(rewrite.getAST().newModifier(ModifierKeyword.PRIVATE_KEYWORD));
+										ArrayList<Modifier> publicModifiers=new ArrayList<Modifier>();
+										for(Modifier m: l)
+										{
+											if(m.isPublic())
+											{
+												publicModifiers.add(m);
+											}
+										}
+										//rewrite.set(md, MethodDeclaration.MODIFIERS_PROPERTY,l, null);
+										for(Modifier toDelete : publicModifiers)
+										{
+											rewrite.getListRewrite(md, MethodDeclaration.MODIFIERS2_PROPERTY).remove(toDelete,null);
+										}
+										rewrite.getListRewrite(md,MethodDeclaration.MODIFIERS2_PROPERTY).insertFirst(unit.getAST().newModifier(ModifierKeyword.PROTECTED_KEYWORD), null);
+									}
+									else
+									{
+										rewrite.remove(md, null);
+									}
+									//rewrite.replace(cic, mi, null);
+									
+									rewriteAST(cu, rewrite, importRewrite);
+									
+									
+								}
+							}
+							catch (JavaModelException e) 
+							{
+								e.printStackTrace();
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		ArrayList<IMethod> modifiedConstr=new ArrayList<IMethod>();
+		
+		for(IMethod deletedConstr : replacedConstructors.keySet())
+		{
+			IMethod rep=replacedConstructors.get(deletedConstr);
+			while(IsConstructorReplacedByAnother(rep)!=false)
+			{
+				rep=replacedConstructors.get(rep);
+			}
+			
+			if(!modifiedConstr.contains(rep))
+			{
+				ICompilationUnit cu=rep.getCompilationUnit();
+				for(CompilationUnit unit : compilationUnits.keySet())
+				{
+					if(compilationUnits.get(unit).equals(cu))
+					{
+						try 
+						{
+							ASTNode result = NodeFinder.perform(unit,rep.getSourceRange());
+							
+							if(result instanceof MethodDeclaration)
+							{
+								ASTRewrite rewrite=ASTRewrite.create(unit.getAST());
+								ImportRewrite importRewrite= ImportRewrite.create(cu, true);
+								
+								MethodDeclaration md=(MethodDeclaration)result;
+								
+								TypeDeclaration td=(TypeDeclaration) getParent(md, TypeDeclaration.class);
+								
+								ChildListPropertyDescriptor descriptor=null;
+								if (td instanceof AbstractTypeDeclaration)
+									descriptor= ((AbstractTypeDeclaration) td).getBodyDeclarationsProperty();
+								
+								//rewrite.getListRewrite(td,descriptor).replace(cic, mi, null);
+								//rewrite.getListRewrite(td, descriptor).remove(cic, null);
+								//rewrite.getListRewrite(td, descriptor).insertLast(mi, null);
+							
+								//rewrite.remove(md, null);
+								//rewrite.replace(cic, mi, null);
+						
+								//int newFlags=md.getFlags() | Flags.AccPrivate;
+								List<Modifier> l=md.modifiers();
+								//l.add(rewrite.getAST().newModifier(ModifierKeyword.PRIVATE_KEYWORD));
+								ArrayList<Modifier> publicAndProtected=new ArrayList<Modifier>();
+								for(Modifier m: l)
+								{
+									if(m.isPublic() || m.isProtected())
+									{
+										publicAndProtected.add(m);
+									}
+								}
+								//rewrite.set(md, MethodDeclaration.MODIFIERS_PROPERTY,l, null);
+								for(Modifier toDelete : publicAndProtected)
+								{
+									rewrite.getListRewrite(md, MethodDeclaration.MODIFIERS2_PROPERTY).remove(toDelete,null);
+								}
+								rewrite.getListRewrite(md,MethodDeclaration.MODIFIERS2_PROPERTY).insertFirst(unit.getAST().newModifier(ModifierKeyword.PRIVATE_KEYWORD), null);
+								rewriteAST(cu, rewrite, importRewrite);
+								
+								modifiedConstr.add(rep);
+								
+								
+							}
+						}
+						catch (JavaModelException e) 
+						{
+							e.printStackTrace();
+						}
+					}
+				}
+			
+			}
+		}
+		
+		UpdateReferencesForReplacedConstructors();
+	}
+	
+	private void UpdateReferencesForReplacedConstructors()
+	{
+		final ArrayList<MethodDeclaration> rewritedReplaceConstr=new ArrayList<MethodDeclaration>();
+		for(IMethod deletedConstr : replacedConstructors.keySet())
+		{
+			IMethod rep=replacedConstructors.get(deletedConstr);
+			while(IsConstructorReplacedByAnother(rep)!=false)
+			{
+				rep=replacedConstructors.get(rep);
+			}
+			final ICompilationUnit cu=deletedConstr.getCompilationUnit();
+			final IMethod repFinal=rep;
+			
+			try
+			{
+				MethodDeclaration md=creationMethods.get(deletedConstr);
+				if(md!=null)
+				{
+					md.accept(new ASTVisitor() {
+						@Override
+						public boolean visit(ClassInstanceCreation node) {
+							
+							ASTRewrite rewrite=ASTRewrite.create(node.getAST());
+							ImportRewrite importRewrite = null;
+							try {
+								importRewrite = ImportRewrite.create(cu, true);
+							} catch (JavaModelException e) {
+								e.printStackTrace();
+							}
+							
+							if(importRewrite!=null)
+							{
+							
+								MethodDeclaration md=(MethodDeclaration) getParent(node,MethodDeclaration.class);
+								MethodDeclaration repMethod=creationMethods.get(repFinal);
+								TypeDeclaration td=creationMethodsWithTypeDeclaration.get(md);
+								
+								if(td!=null)
+								{
+								
+									ITypeBinding typeBinding=td.resolveBinding();
+									AST ast=node.getAST();
+									ClassInstanceCreation newInstance=ast.newClassInstanceCreation();
+									
+									newInstance.setType(importRewrite.addImport(typeBinding, ast));
+									List<SingleVariableDeclaration> replaceParams=repMethod.parameters();
+									List<SingleVariableDeclaration> params=md.parameters();
+									node.arguments().clear();
+									for(int index=0; index<replaceParams.size(); index++)
+									{
+										SingleVariableDeclaration repSvd=replaceParams.get(index);
+										
+										if(CheckIfThisArgExistsInMethod(repSvd,params))
+										{
+											node.arguments().add(ast.newSimpleName(replaceParams.get(index).getName().getIdentifier()));
+										}
+										else
+										{
+											
+											node.arguments().add(ast.newNullLiteral());
+										}
+										
+									}
+									
+									rewrite.getListRewrite(td, td.getBodyDeclarationsProperty()).insertLast(md, null);
+									
+									if(!rewritedReplaceConstr.contains(repMethod))
+									{
+										rewrite.getListRewrite(td, td.getBodyDeclarationsProperty()).insertLast(repMethod, null);
+										rewritedReplaceConstr.add(repMethod);
+									}
+									
+									rewriteAST(cu, rewrite, importRewrite);
+								}
+							
+							}
+							return super.visit(node);
+						}
+					});
+				}
+			}
+			catch(Exception e)
+			{
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	private boolean CheckIfThisArgExistsInMethod(SingleVariableDeclaration svd,List<SingleVariableDeclaration> params)
+	{
+		for(SingleVariableDeclaration sv : params)
+		{
+			if(svd.getName().getIdentifier().equals(sv.getName().getIdentifier()))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	private boolean IsConstructorReplacedByAnother(IMethod rep)
+	{
+		for(IMethod deletedConstr : replacedConstructors.keySet())
+		{
+			if(rep==deletedConstr)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	private LinkedHashMap<IMethod, IMethod> replacedConstructors=new LinkedHashMap<IMethod, IMethod>();
+	
+	private boolean CheckIfConstructorIfSubsetOfOther(IMethod constr,Set<IMethod> otherConstructors)
+	{
+		String[] paramNames=null;
+		try 
+		{
+			paramNames=constr.getParameterNames();
+		} 
+		catch (JavaModelException e)
+		{
+			e.printStackTrace();
+		}
+		String[] paramTypes=constr.getParameterTypes();
+		
+		for(IMethod constructor : otherConstructors)
+		{
+			if(constr!=constructor)
+			{
+				String[] otherParamNames=null;
+				try 
+				{
+					otherParamNames=constructor.getParameterNames();
+				} 
+				catch (JavaModelException e) 
+				{
+					e.printStackTrace();
+				}
+				String[] otherParamTypes=constructor.getParameterTypes();
+				
+				int findedNames=0;
+				int index=0;
+				for(String checkParamName : paramNames)
+				{
+					int nestedIndex=0;
+					for(String pn : otherParamNames)
+					{
+						if(checkParamName.equals(pn))
+						{
+							if(paramTypes[index].equals(otherParamTypes[nestedIndex]))
+							{
+								findedNames++;
+							}
+						}
+						nestedIndex++;
+					}
+					index++;
+				}
+				if(findedNames!=paramNames.length)
+				{
+					continue;
+				}
+				else
+				{
+					replacedConstructors.put(constr, constructor);
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	private ChildListPropertyDescriptor typeToBodyDeclarationProperty(IType type, CompilationUnit node) throws JavaModelException {
@@ -458,13 +792,20 @@ public class CreationMethodsRefactoring extends Refactoring {
 				e.toString();
 			}
 			
+			ArrayList<IMethod> c=updater.getSuperConstr();
+			if(c.size()>0)
+			{
+				constructorsToChangeToProtected.put(type, c);
+			}
+			
 		}
 	}
+	
 	
 	public class ReferencesUpdater extends SearchRequestor
 	{
 		private LinkedHashMap<IMethod,MethodDeclaration> creationMethods;
-		private LinkedHashMap<CompilationUnit,ICompilationUnit> compilationUnits = new LinkedHashMap<CompilationUnit,ICompilationUnit>();
+		private ArrayList<IMethod> superConstr=new ArrayList<IMethod>();
 		private ASTRequestor requestors= new ASTRequestor() {
 			@Override
 			public void acceptAST(ICompilationUnit source, CompilationUnit ast) {
@@ -511,6 +852,10 @@ public class CreationMethodsRefactoring extends Refactoring {
 						if(result instanceof SuperConstructorInvocation)
 						{
 							SuperConstructorInvocation sci=(SuperConstructorInvocation)result;
+							
+							//IMethodBinding constructorBinding=sci.resolveConstructorBinding();
+							superConstr.add(searchedMethod);
+							
 						}
 						if(result instanceof ClassInstanceCreation)
 						{
@@ -533,14 +878,22 @@ public class CreationMethodsRefactoring extends Refactoring {
 							MethodInvocation mi=ast.newMethodInvocation();
 							//mi.setName(ast.newSimpleName("createLoan"));
 							mi.setSourceRange(start, length);
+							
+							String p=searchedMethod.getDeclaringType().getFullyQualifiedName();
+							String c=newMethod.getName().getIdentifier();
+							
+							String temp=importRewrite.
+							addImport(searchedMethod.getDeclaringType().getFullyQualifiedName());
+							
+							mi.setExpression(ast.newSimpleName(temp));
 							mi.setName(ast.newSimpleName(newMethod.getName().getIdentifier()));
 						
+							//importRewrite.
 							
 							for (int index= 0; index < cic.arguments().size(); index++)
 							{
 								mi.arguments().add(rewrite.createMoveTarget((ASTNode) cic.arguments().get(index)));
 							}
-							
 							
 							//AbstractTypeDeclaration declaration= (AbstractTypeDeclaration) typeToDeclaration(typeToChange, unit);
 							//ChildListPropertyDescriptor descriptor= typeToBodyDeclarationProperty(typeToChange, unit);
@@ -573,6 +926,10 @@ public class CreationMethodsRefactoring extends Refactoring {
 		public void setSearchedMethod(IMethod searchedMethod) {
 			this.searchedMethod = searchedMethod;
 		}
+
+		public ArrayList<IMethod> getSuperConstr() {
+			return superConstr;
+		}
 		
 	}
 	
@@ -585,9 +942,9 @@ public class CreationMethodsRefactoring extends Refactoring {
 
 			if (!isEmptyEdit(astEdit))
 				edit.addChild(astEdit);
-			//TextEdit importEdit= importRewrite.rewriteImports(new NullProgressMonitor());
-			//if (!isEmptyEdit(importEdit))
-			//	edit.addChild(importEdit);
+			TextEdit importEdit= importRewrite.rewriteImports(new NullProgressMonitor());
+			if (!isEmptyEdit(importEdit))
+				edit.addChild(importEdit);
 			if (isEmptyEdit(edit))
 				return;
 
@@ -628,7 +985,4 @@ public class CreationMethodsRefactoring extends Refactoring {
 		this.javaProject = javaProject;
 		this.referencesSearch=new Search(this.javaProject);
 	}
-	
-	
-
 }
