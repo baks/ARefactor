@@ -19,9 +19,10 @@ import org.eclipse.swt.widgets.Text;
 
 public class CreationMethodsInputPage extends UserInputWizardPage {
 
-	private LinkedHashMap<IType, LinkedHashMap<IMethod,String>> constructors=new LinkedHashMap<IType, LinkedHashMap<IMethod,String>>();
+	private LinkedHashMap<IType, ArrayList<CreationMethod>> constructors=new LinkedHashMap<IType, ArrayList<CreationMethod>>();
 	
-	public CreationMethodsInputPage(String name,LinkedHashMap<IType, LinkedHashMap<IMethod, String>> constructors) 
+	public CreationMethodsInputPage(String name,LinkedHashMap<IType, 
+			ArrayList<CreationMethod>> constructors) 
 	{
 		super(name);
 		this.constructors=constructors;
@@ -50,54 +51,73 @@ public class CreationMethodsInputPage extends UserInputWizardPage {
 		result.pack();
 	}
 	
-	private void CreateTabForClassAndItsConstructors(TabFolder folder,String className,final LinkedHashMap<IMethod,String> constr)
+	private void CreateTabForClassAndItsConstructors(TabFolder folder,String className,final ArrayList<CreationMethod> constr)
 	{
 		TabItem item = new TabItem(folder, SWT.NONE);
 		item.setText(className);
 		
-		Composite par=new Composite(folder,SWT.FILL);
+		Composite composite=new Composite(folder,SWT.FILL);
 		GridLayout tabItemLayout=new GridLayout();
 		tabItemLayout.numColumns=2;
 		tabItemLayout.makeColumnsEqualWidth=true;
-		par.setLayout(tabItemLayout);
+		composite.setLayout(tabItemLayout);
 		
-		Label label=new Label(par,SWT.FILL);
+		Label label=new Label(composite,SWT.FILL);
 		label.setText("Constructor signature");
 		label.setLayoutData(new GridData(SWT.FILL,SWT.FILL,true,false));
 		
-		Label label2=new Label(par,SWT.FILL);
+		Label label2=new Label(composite,SWT.FILL);
 		label2.setText("Proposed creation method name");
 		label2.setLayoutData(new GridData(SWT.FILL,SWT.FILL,true,false));
 		
-		for(final IMethod method : constr.keySet())
+		for(final CreationMethod method : constr)
 		{
-			Text text=new Text(par,SWT.MULTI | SWT.BORDER);
-			StringBuilder sb=new StringBuilder();
-			for(String paramType : method.getParameterTypes())
-			{
-				sb.append(org.eclipse.jdt.core.Signature.toString(paramType));
-				sb.append(",");
-			}
-			if(sb.length()>0)
-				sb.deleteCharAt(sb.length()-1);
-			text.setText(method.getElementName()+ "(" + sb.toString() + ")");
-			text.setLayoutData(new GridData(SWT.FILL,SWT.FILL,true,false));
-			text.setEditable(false);
-			
-			final Text text2=new Text(par,SWT.MULTI | SWT.BORDER);
-			text2.setText("create" + method.getElementName());
-			constr.put(method, text2.getText());
-			text2.setLayoutData(new GridData(SWT.FILL,SWT.FILL,true,false));
-			text2.addModifyListener(new ModifyListener() {
-				
-				@Override
-				public void modifyText(ModifyEvent arg0) {
-					constr.put(method, text2.getText());
-				}
-			});
+			createTextControlForConstructorSignature(composite, method.getReplacedMethod());
+			createTextControlForCreationMethodName(composite, method, constr);
 		}
+		item.setControl(composite);
+	}
+	
+	private void createTextControlForConstructorSignature(Composite composite,IMethod method) {
+		Text constructorSignature=new Text(composite,SWT.MULTI | SWT.BORDER);
+		StringBuilder sb=new StringBuilder();
+		for(String paramType : method.getParameterTypes())
+		{
+			sb.append(org.eclipse.jdt.core.Signature.toString(paramType));
+			sb.append(",");
+		}
+		if(sb.length()>0)
+			sb.deleteCharAt(sb.length()-1);
+		constructorSignature.setText(method.getElementName()+ "(" + sb.toString() + ")");
+		constructorSignature.setLayoutData(new GridData(SWT.FILL,SWT.FILL,true,false));
+		constructorSignature.setEditable(false);
+	}
+	
+	private void createTextControlForCreationMethodName(Composite composite,final CreationMethod method,
+			final ArrayList<CreationMethod> constr) {
+		final Text creationMethodName=new Text(composite,SWT.MULTI | SWT.BORDER);
+		creationMethodName.setText("create" + method.getReplacedMethod().getElementName());
+		setTextForMethod(constr,method,creationMethodName.getText());
+		creationMethodName.setLayoutData(new GridData(SWT.FILL,SWT.FILL,true,false));
 		
-		item.setControl(par);
+		creationMethodName.addModifyListener(new ModifyListener() {
+			
+			@Override
+			public void modifyText(ModifyEvent arg0) {
+				setTextForMethod(constr,method,creationMethodName.getText());
+			}
+		});
+	}
+
+	private void setTextForMethod(ArrayList<CreationMethod> constr,CreationMethod cm,String text)
+	{
+		for(CreationMethod method : constr)
+		{
+			if(method.getReplacedMethod()==cm.getReplacedMethod())
+			{
+				method.setName(text);
+			}
+		}
 	}
 	
 

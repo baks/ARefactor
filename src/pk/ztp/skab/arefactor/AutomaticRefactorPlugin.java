@@ -1,7 +1,6 @@
 package pk.ztp.skab.arefactor;
 
-import java.util.Properties;
-
+import org.eclipse.jdt.internal.core.PackageFragmentRoot;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.BundleContext;
@@ -22,7 +21,7 @@ public class AutomaticRefactorPlugin extends AbstractUIPlugin {
 	 */
 	public AutomaticRefactorPlugin() 
 	{
-		//PropertyConfigurator.configure(CreateLog4JProperties());
+		
 	}
 
 	/*
@@ -66,16 +65,4 @@ public class AutomaticRefactorPlugin extends AbstractUIPlugin {
 	{
 		return imageDescriptorFromPlugin(PLUGIN_ID, path);
 	}
-	
-	private Properties CreateLog4JProperties()
-	{
-		Properties p=new Properties();
-		p.put("log4j.rootLogger","debug, R");
-		p.put("log4j.appender.R","org.apache.log4j.FileAppender");
-		p.put("log4j.appender.R.File","C:\\example.log");
-		p.put("log4j.appender.R.layout","org.apache.log4j.PatternLayout");
-		p.put("log4j.appender.R.layout.ConversionPattern","%p %t %c - %m%n");
-		return p;
-	}
-	
 }

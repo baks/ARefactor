@@ -6,55 +6,21 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
+
+import pk.ztp.skab.arefactor.AutomaticRefactorPlugin;
 import pk.ztp.skab.arefactor.popup.actions.CreationMethodsAction;
 
 public class ARefactorLogger 
 {
-    private volatile static Logger logger;
-	private static FileHandler fileTxt;
-	private static SimpleFormatter formatterTxt;
-    
-    private ARefactorLogger()
-    {
-    }
+    private ARefactorLogger() {}
  
-    public static Logger getInstance()
-    {
-        if (logger == null) 
-        {
-            synchronized (ARefactorLogger.class) 
-            {
-                if (logger == null) 
-                {
-                    prepareLogger();
-                }
-                return logger;
-            }
-        } 
-        else 
-        {
-            return logger;
-        }
+    public static void log(Exception e) {
+    	AutomaticRefactorPlugin.getDefault().getLog().log(new Status(IStatus.ERROR,"ARefactor",e.getMessage(),e));
     }
     
-    private static void prepareLogger()
-    {
-    	logger=Logger.getLogger(ARefactorLogger.class.getName());
-    	logger.setLevel(Level.ALL);
-    	try 
-		{
-			fileTxt = new FileHandler("C:\\Logging.txt");
-		} 
-		catch (SecurityException e) 
-		{
-			e.printStackTrace();
-		} 
-		catch (IOException e) 
-		{
-			e.printStackTrace();
-		}
-		formatterTxt = new SimpleFormatter();
-		fileTxt.setFormatter(formatterTxt);
-		logger.addHandler(fileTxt);
+    public static void log(String s) {
+    	AutomaticRefactorPlugin.getDefault().getLog().log(new Status(IStatus.INFO,"ARefactor",s));
     }
 }

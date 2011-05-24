@@ -13,8 +13,8 @@ public class CreationMethodsDescriptor extends RefactoringDescriptor {
 
 	private final Map fArguments=null;
 	
-	protected CreationMethodsDescriptor(String project,
-			String description, String comment, Map arguments) {
+	protected CreationMethodsDescriptor(String project,String description, String comment, 
+			Map arguments) {
 		super(REFACTORING_ID, project, description, comment,
 				RefactoringDescriptor.STRUCTURAL_CHANGE | RefactoringDescriptor.MULTI_CHANGE);
 	}

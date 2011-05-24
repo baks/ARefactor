@@ -1,8 +1,5 @@
 package pk.ztp.skab.arefactor.CreationMethods;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.search.SearchMatch;
@@ -25,7 +22,7 @@ public class CountingSearchRequestor extends SearchRequestor
 			hasMatches=true;
 		
 		if(hasMatches==true)
-			ARefactorLogger.getInstance().log(Level.ALL,"Found in element :" + arg0.getElement().toString());
+			ARefactorLogger.log("Found in element :" + arg0.getElement().toString());
 	}
 
 	public boolean getHasMatches() {

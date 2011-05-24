@@ -5,11 +5,10 @@
    <extension
          point="org.eclipse.ui.popupMenus">
       <objectContribution
-            objectClass="org.eclipse.core.resources.IProject"
-            id="ARefactor.contribution1">
+            id="ARefactor.contribution1"
+            objectClass="org.eclipse.jdt.core.ICompilationUnit">
          <menu
                label="Automatic Refactoring"
-               path="additions"
                id="ARefactor.menu1">
             <separator
                   name="group1">

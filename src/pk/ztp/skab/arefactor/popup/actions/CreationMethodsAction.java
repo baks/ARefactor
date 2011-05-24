@@ -14,6 +14,7 @@ import java.util.logging.SimpleFormatter;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IPackageFragment;
 import org.eclipse.jdt.core.IPackageFragmentRoot;
@@ -42,6 +43,7 @@ import pk.ztp.skab.arefactor.Logger.ARefactorLogger;
 public class CreationMethodsAction implements IWorkbenchWindowActionDelegate 
 {
 	private IJavaProject project=null;
+	private ICompilationUnit selectedUnit=null;
 	private Shell shell;
 	private IWorkbenchWindow fWindow= null;
 	
@@ -71,17 +73,21 @@ public class CreationMethodsAction implements IWorkbenchWindowActionDelegate
 	 */
 	public void run(IAction action) 
 	{
-		ARefactorLogger.getInstance().log(Level.ALL, "Started searching java project to classes to apply creation methods refactor in project : " + this.project.getElementName());
-		Search search=new Search(this.project);
-		ARefactorLogger.getInstance().log(Level.ALL,"End searching classess to apply creation methods refactor in project : " + this.project.getElementName());
-		/*MessageDialog.openInformation(
-				shell,
-				"ARefactor",
-				"Creation Methods was executed.");*/
+		ARefactorLogger.log( "Started searching java project to classes to apply creation methods refactor in project : " + this.project.getElementName());
+		Search search=new Search(this.project,this.selectedUnit);
+		try {
+			if(search.getClassessWithConstructors().isEmpty() || !this.selectedUnit.isStructureKnown())
+			{
+				MessageDialog.openInformation(shell, "Information", "Can't apply creation methods refactoring to this class");
+				return;
+			}
+		} catch (JavaModelException e) {
+			ARefactorLogger.log(e);
+		}
+		ARefactorLogger.log("End searching classess to apply creation methods refactor in project : " + this.project.getElementName());
 		if(fWindow==null)
 		{
 			Display.getDefault().syncExec(new Runnable() {
-				
 				@Override
 				public void run() {
 					GetWorkbenchWindow();
@@ -90,30 +96,31 @@ public class CreationMethodsAction implements IWorkbenchWindowActionDelegate
 			});
 		}
 		CreationMethodsRefactoring cmr=new CreationMethodsRefactoring();
+		cmr.setUnitToRefactor(this.selectedUnit);
 		cmr.setJavaProject(project);
 		cmr.setClassConstructors(search.getClassessWithConstructors());
-		run(new CreationMethodsWizard(cmr, "Baks - test",search.getClassessWithConstructors()),"Baks - test");
+		
+		run(new CreationMethodsWizard(cmr, "Creation Methods Refactoring",search.getClassessWithConstructors()),"Creation Methods Refactoring");
 	}
 	
 	public void run(RefactoringWizard wizard, String dialogTitle) {
 		try 
 		{
 			RefactoringWizardOpenOperation operation= new RefactoringWizardOpenOperation(wizard);
-			ARefactorLogger.getInstance().log(Level.ALL,"Refactoring Wizard Operation created");
+			ARefactorLogger.log("Refactoring Wizard Operation created");
 			operation.run(fWindow.getShell(), dialogTitle);
 		} 
 		catch (InterruptedException exception) 
 		{
-			ARefactorLogger.getInstance().log(Level.ALL,"Exception when runing Wizard Open Operation : " + exception.toString());
+			ARefactorLogger.log("Exception when runing Wizard Open Operation : " + exception.toString());
 		}
 		catch(Exception ex)
 		{
-			ARefactorLogger.getInstance().log(Level.ALL,"Exception when runing Wizard Open Operation : " + ex.toString());
+			ARefactorLogger.log("Exception when runing Wizard Open Operation : " + ex.toString());
 			final Writer result = new StringWriter();
 		    final PrintWriter printWriter = new PrintWriter(result);
 		    ex.printStackTrace(printWriter);
-		    ARefactorLogger.getInstance().log(Level.ALL,"Exception when runing Wizard Open Operation : " + result.toString());
-
+		    ARefactorLogger.log("Exception when runing Wizard Open Operation : " + result.toString());
 		}
 	}
 
@@ -125,14 +132,12 @@ public class CreationMethodsAction implements IWorkbenchWindowActionDelegate
 			   Object[] selectedObjects = ((IStructuredSelection)selection).toArray();
 			   for(Object obj : selectedObjects)
 			   {
-				   if(obj instanceof IProject)
+				   if(obj instanceof ICompilationUnit)
 				   {
-					   ARefactorLogger.getInstance().log(Level.ALL,((IProject)obj).getName());
-					   if(checkIfProjectIsJavaProject((IProject)obj))
-					   {
-						   this.project=JavaCore.create((IProject)obj);
-						   ARefactorLogger.getInstance().log(Level.ALL,"Selection Changed to Java project : " + this.project.getElementName());
-					   }
+					   ARefactorLogger.log(((ICompilationUnit)obj).getElementName());
+					   this.selectedUnit=(ICompilationUnit)obj;
+					   
+					   this.project=this.selectedUnit.getJavaProject();
 				   }
 			   }
 			}
@@ -149,15 +154,13 @@ public class CreationMethodsAction implements IWorkbenchWindowActionDelegate
 		} 
 		catch (CoreException e) 
 		{
-			e.printStackTrace();
+			ARefactorLogger.log(e);
 		}
 		return false;
 	}
 
 	@Override
 	public void dispose() {
-		// TODO Auto-generated method stub
-		
 	}
 
 	private void GetWorkbenchWindow()
