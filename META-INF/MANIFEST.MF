@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: ARefactor
-Bundle-SymbolicName: ARefactor; singleton:=true
+Bundle-SymbolicName: ARefactor;singleton:=true
 Bundle-Version: 1.0.0.qualifier
 Bundle-Activator: pk.ztp.skab.arefactor.AutomaticRefactorPlugin
 Require-Bundle: org.eclipse.ui,

@@ -3,6 +3,7 @@ package pk.ztp.skab.arefactor.CreationMethods;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,7 @@ import org.eclipse.jdt.core.IMethod;
 import org.eclipse.jdt.core.IType;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTMatcher;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTParser;
 import org.eclipse.jdt.core.dom.ASTRequestor;
@@ -30,6 +32,7 @@ import org.eclipse.jdt.core.dom.CharacterLiteral;
 import org.eclipse.jdt.core.dom.ChildListPropertyDescriptor;
 import org.eclipse.jdt.core.dom.ClassInstanceCreation;
 import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.ConstructorInvocation;
 import org.eclipse.jdt.core.dom.Expression;
 import org.eclipse.jdt.core.dom.IBinding;
 import org.eclipse.jdt.core.dom.IMethodBinding;
@@ -40,6 +43,7 @@ import org.eclipse.jdt.core.dom.Name;
 import org.eclipse.jdt.core.dom.PrimitiveType;
 import org.eclipse.jdt.core.dom.ReturnStatement;
 import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
+import org.eclipse.jdt.core.dom.Statement;
 import org.eclipse.jdt.core.dom.Type;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
@@ -75,8 +79,15 @@ public class CreationMethodsRefactoring extends Refactoring {
 	private IProgressMonitor monitor;
 	private LinkedHashMap<IType, ArrayList<IMethod>> constructorsUsedInInheritedClass = new LinkedHashMap<IType, ArrayList<IMethod>>();
 	private Search referencesSearch;
+	
+	//NIE ZMIENIAÆ TYPU!!!!
 	private LinkedHashMap<IMethod, IMethod> replacedConstructors = new LinkedHashMap<IMethod, IMethod>();
+	
 	private ICompilationUnit unitToRefactor;
+	private HashMap<IMethod,MethodDeclaration> constructorDeclarations=new HashMap<IMethod, MethodDeclaration>();
+	private ArrayList<IMethod> constructorsToLeave=new ArrayList<IMethod>();
+	
+	//CHANGE LINKEDHASHMAP TO HASHMAP!!!!!!!
 	
 	@Override
 	public RefactoringStatus checkInitialConditions(IProgressMonitor arg0)
@@ -178,9 +189,13 @@ public class CreationMethodsRefactoring extends Refactoring {
 					ITypeBinding classType=getTypeBinding(requestor,method.getReplacedMethod());
 					IMethodBinding methodBinding=getMethodBinding(classType,method.getReplacedMethod());
 					
+					constructorDeclarations.put(method.getReplacedMethod(), 
+							(MethodDeclaration)NodeFinder.perform(node,method.getReplacedMethod().getSourceRange()));
+					
 					MethodDeclaration md = createNewCreationMethodDeclaration(method.getName(),classType,
 							methodBinding,method.getReplacedMethod(),astRewrite,importRewrite);
 
+					
 					creationMethods.put(method.getReplacedMethod(), md);
 					creationMethodsWithTypeDeclaration.put(md, td);
 				}
@@ -320,7 +335,6 @@ public class CreationMethodsRefactoring extends Refactoring {
 	}
 	
 	private void CheckConstructors() {
-		
 		for (IType type : classConstructors.keySet()) {
 			
 			ArrayList<CreationMethod> constrs = classConstructors.get(type);
@@ -329,15 +343,84 @@ public class CreationMethodsRefactoring extends Refactoring {
 			{
 				otherConstrs.add(c.getReplacedMethod());
 			}
-			for (CreationMethod constr : constrs) {
-				
-				if (CheckIfConstructorIfSubsetOfOther(constr.getReplacedMethod(), otherConstrs)) {
-					FindCompilationUnitAndChangeConstructorVisibility(constr.getReplacedMethod(), type);
+			for (CreationMethod constr : constrs) {	
+				CheckIfConstructorIfSubsetOfOther(constr.getReplacedMethod(), otherConstrs);
+			}
+		}
+		
+		ArrayList<IMethod> toDelete=new ArrayList<IMethod>();
+		
+		for(int i=0; i<replacedConstructors.size(); i++)
+		{
+			IMethod rep = (IMethod) replacedConstructors.values().toArray()[i];
+			while (IsConstructorReplacedByAnother(rep) != false) {
+				rep = replacedConstructors.get(rep);
+			}
+			
+			replacedConstructors.put((IMethod) replacedConstructors.keySet().toArray()[i], rep);
+		}
+		
+		for (IMethod deletedConstr : replacedConstructors.keySet()) {
+			IMethod rep = replacedConstructors.get(deletedConstr);
+			while (IsConstructorReplacedByAnother(rep) != false) {
+				rep = replacedConstructors.get(rep);
+			}
+			
+			MethodDeclaration firstDeclaration=this.constructorDeclarations.get(deletedConstr);
+			MethodDeclaration secondDeclaration=this.constructorDeclarations.get(rep);
+			
+			if(!compareMethodBodies(firstDeclaration.getBody(), secondDeclaration.getBody()))
+				toDelete.add(deletedConstr);
+			
+			IMethod m1=CheckMethodBodyForOtherConstructorInvocations(firstDeclaration.getBody());
+			
+			if(m1!=null)
+			{
+				if(toDelete.contains(deletedConstr))
+					toDelete.remove(deletedConstr);
+			}
+		}
+		
+		CheckConstructorsThatDontMatchNamesAndTypes();
+		
+		for(IMethod m :toDelete)
+			replacedConstructors.remove(m);
+		
+		for(IMethod creationMethod : this.creationMethods.keySet())
+		{
+			if(!replacedConstructors.containsKey(creationMethod))
+			{
+				MethodDeclaration constrDeclaration=this.constructorDeclarations.get(creationMethod);
+				Block block=constrDeclaration.getBody();
+				List<Statement> statements = block.statements();
+				for(Statement stmt : statements)
+				{
+					if(stmt instanceof ConstructorInvocation)
+					{
+						ConstructorInvocation ci=(ConstructorInvocation)stmt;
+						IMethodBinding constructorBinding=ci.resolveConstructorBinding();
+						
+						for(IMethod m : this.constructorDeclarations.keySet())
+						{
+							if(constructorBinding==this.constructorDeclarations.get(m).resolveBinding())
+							{
+								this.constructorsToLeave.add(m);
+							}
+						}
+					}
 				}
 			}
 		}
-
+				
 		ArrayList<IMethod> modifiedConstr = new ArrayList<IMethod>();
+		for (IType type : classConstructors.keySet()) {
+			ArrayList<CreationMethod> constrs = classConstructors.get(type);
+			for (CreationMethod constr : constrs) {
+				if(replacedConstructors.containsKey(constr.getReplacedMethod()))
+					FindCompilationUnitAndChangeConstructorVisibility(constr.getReplacedMethod(), type,modifiedConstr);
+			}
+		}
+
 		for (IMethod deletedConstr : replacedConstructors.keySet()) {
 			IMethod rep = replacedConstructors.get(deletedConstr);
 			while (IsConstructorReplacedByAnother(rep) != false) {
@@ -348,11 +431,256 @@ public class CreationMethodsRefactoring extends Refactoring {
 				ChangeConstructorVisibilityToPrivate(rep,modifiedConstr);
 			}
 		}
+		
+		final ArrayList<MethodDeclaration> rewritedReplaceConstr = new ArrayList<MethodDeclaration>();
+		ArrayList<IMethod> notReplaced=new ArrayList<IMethod>();
+		for(final IMethod creationMethod : this.creationMethods.keySet())
+		{
+			if(!replacedConstructors.containsKey(creationMethod))
+			{
+				boolean change=true;
+				if(!this.constructorsUsedInInheritedClass.isEmpty())
+				{
+				ArrayList<IMethod> list=(ArrayList<IMethod>) this.constructorsUsedInInheritedClass.values().toArray()[0];
+				
+				for(int i=0; i<list.size(); i++)
+				{
+					IMethod meth=list.get(i);
+					if(meth==creationMethod)
+					{
+						change=false;
+						IType t=null;;
+						for(IType type : this.constructorsUsedInInheritedClass.keySet())
+						{
+							if(this.constructorsUsedInInheritedClass.get(type)==list)
+								t=type;
+								
+						}
+						FindCompilationUnitAndChangeConstructorVisibility(creationMethod, t,modifiedConstr);
+						
+						MethodDeclaration md=this.creationMethods.get(creationMethod);
+						if(!rewritedReplaceConstr.contains(md))
+						{
+							rewritedReplaceConstr.add(md);
+						final ICompilationUnit cu = creationMethod.getCompilationUnit();
+						if (md != null) {
+							md.accept(new ASTVisitor() {
+								@Override
+								public boolean visit(ClassInstanceCreation node) {
+									ASTRewrite rewrite = ASTRewrite.create(node.getAST());
+									ImportRewrite importRewrite = null;
+									try {
+										importRewrite = ImportRewrite.create(cu, true);
+									} catch (JavaModelException e) {
+										ARefactorLogger.log(e);
+									}
+									if (importRewrite != null) {
 
-		UpdateReferencesForReplacedConstructors();
+										MethodDeclaration md = (MethodDeclaration) getParent(node, MethodDeclaration.class);
+										MethodDeclaration repMethod = creationMethods.get(creationMethod);
+										TypeDeclaration td = creationMethodsWithTypeDeclaration.get(md);
+
+										if (td != null) {
+											createClassInstanceCreation(td,repMethod,md,node,rewritedReplaceConstr,cu,rewrite,
+													importRewrite);
+										}
+
+									}
+									return super.visit(node);
+								}
+							});
+						}
+					}
+				}
+				}
+				}
+				if(change)
+				{
+					ChangeConstructorVisibilityToPrivate(creationMethod, modifiedConstr);
+					notReplaced.add(creationMethod);
+				}
+			}
+		}
+
+		
+		UpdateReferencesForReplacedConstructors(rewritedReplaceConstr);
+		
+		
+		for(final IMethod notReplacedMethod : notReplaced)
+		{
+			MethodDeclaration md=this.creationMethods.get(notReplacedMethod);
+			if(!rewritedReplaceConstr.contains(md))
+			{
+				rewritedReplaceConstr.add(md);
+			final ICompilationUnit cu = notReplacedMethod.getCompilationUnit();
+			if (md != null) {
+				md.accept(new ASTVisitor() {
+					@Override
+					public boolean visit(ClassInstanceCreation node) {
+						ASTRewrite rewrite = ASTRewrite.create(node.getAST());
+						ImportRewrite importRewrite = null;
+						try {
+							importRewrite = ImportRewrite.create(cu, true);
+						} catch (JavaModelException e) {
+							ARefactorLogger.log(e);
+						}
+						if (importRewrite != null) {
+
+							MethodDeclaration md = (MethodDeclaration) getParent(node, MethodDeclaration.class);
+							MethodDeclaration repMethod = creationMethods.get(notReplacedMethod);
+							TypeDeclaration td = creationMethodsWithTypeDeclaration.get(md);
+
+							if (td != null) {
+								createClassInstanceCreation(td,repMethod,md,node,rewritedReplaceConstr,cu,rewrite,
+										importRewrite);
+							}
+
+						}
+						return super.visit(node);
+					}
+				});
+			}
+		}
+		}
 	}
 	
-	private void FindCompilationUnitAndChangeConstructorVisibility(IMethod constr,IType type)
+	private boolean CheckIfConstructorIfSubsetOfOther(IMethod constr,ArrayList<IMethod> otherConstructors) {
+		String[] paramNames = null;
+		try {
+			paramNames = constr.getParameterNames();
+		} catch (JavaModelException e) {
+			ARefactorLogger.log(e);
+		}
+		String[] paramTypes = constr.getParameterTypes();
+
+		for (IMethod constructor : otherConstructors) {
+			if (constr != constructor) {
+				String[] otherParamNames = null;
+				try {
+					otherParamNames = constructor.getParameterNames();
+				} catch (JavaModelException e) {
+					ARefactorLogger.log(e);
+				}
+				String[] otherParamTypes = constructor.getParameterTypes();
+
+				int findedNames = 0;
+				int index = 0;
+				for (String checkParamName : paramNames) {
+					int nestedIndex = 0;
+					for (String pn : otherParamNames) {
+						if (checkParamName.equals(pn)) {
+							if (paramTypes[index].equals(otherParamTypes[nestedIndex])) {
+								findedNames++;
+							}
+						}
+						nestedIndex++;
+					}
+					index++;
+				}
+				if (findedNames != paramNames.length) {
+					continue;
+				} else {
+						//MethodDeclaration firstDeclaration=this.constructorDeclarations.get(constr);
+						//MethodDeclaration secondDeclaration=this.constructorDeclarations.get(constructor);
+						
+						//compareMethodBodies(firstDeclaration.getBody(), secondDeclaration.getBody());
+					}
+				replacedConstructors.put(constr, constructor);
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	private IMethod CheckMethodBodyForOtherConstructorInvocations(Block block)
+	{
+		List<Statement> statements=block.statements();
+		if(statements.size()==1)
+		{
+			if(statements.get(0) instanceof ConstructorInvocation)
+			{
+				ConstructorInvocation ci=(ConstructorInvocation) statements.get(0);
+				IMethodBinding constructorBinding=ci.resolveConstructorBinding();
+				
+				for(IMethod m : this.constructorDeclarations.keySet())
+				{
+					if(constructorBinding==this.constructorDeclarations.get(m).resolveBinding())
+					{
+						return m;
+					}
+				}
+			}
+		}
+		else
+		{
+			for(Statement stmt : statements)
+			{
+				if(stmt instanceof ConstructorInvocation)
+				{
+					ConstructorInvocation ci=(ConstructorInvocation)stmt;
+					IMethodBinding constructorBinding=ci.resolveConstructorBinding();
+					
+					for(int i=0; i<this.constructorDeclarations.keySet().size(); i++)
+					{
+						IMethod m=(IMethod) this.constructorDeclarations.keySet().toArray()[i];
+						if(constructorBinding==this.constructorDeclarations.get(m).resolveBinding())
+						{
+							
+							for(IMethod constr : this.constructorDeclarations.keySet())
+							{
+								MethodDeclaration first=this.constructorDeclarations.get(m);
+								if(compareMethodBodies(first.getBody(),this.constructorDeclarations.get(constr).getBody()))
+									return m;
+							}
+						}
+					}
+				}
+			}
+		}
+		return null;
+	}
+	
+	private void CheckConstructorsThatDontMatchNamesAndTypes()
+	{
+		for(IMethod m : this.constructorDeclarations.keySet())
+		{
+			if(!replacedConstructors.containsKey(m))
+			{
+				IMethod method=CheckMethodBodyForOtherConstructorInvocations(this.constructorDeclarations.get(m).getBody());
+				if(method!=null)
+				{
+					replacedConstructors.put(m, method);
+				}
+			}
+		}
+	}
+	
+	private boolean compareMethodBodies(Block first,Block second)
+	{
+		List<Statement> firstStatements=first.statements();
+		int firstLength=firstStatements.size();
+		List<Statement> secondStatements=second.statements();
+		ASTMatcher matcher=new ASTMatcher();
+		int equalStmt=0;
+		for(Statement stmtFromFirst : firstStatements)
+		{
+			for(Statement stmtFromSecond : secondStatements)
+			{
+				if(stmtFromFirst.subtreeMatch(matcher, stmtFromSecond))
+				{
+					equalStmt++;
+					break;
+				}
+			}
+		}
+		if(equalStmt==firstLength)
+			return true;
+		else
+			return false;
+	}
+	
+	private void FindCompilationUnitAndChangeConstructorVisibility(IMethod constr,IType type,
+			ArrayList<IMethod> modifiedConstr)
 	{
 		ICompilationUnit cu = constr.getCompilationUnit();
 		for (CompilationUnit unit : compilationUnits.keySet()) {
@@ -384,7 +712,13 @@ public class CreationMethodsRefactoring extends Refactoring {
 							rewrite.getListRewrite(md,MethodDeclaration.MODIFIERS2_PROPERTY).insertFirst(
 									unit.getAST().newModifier(ModifierKeyword.PROTECTED_KEYWORD),null);
 						} else {
-							rewrite.remove(md, null);
+							if(!this.constructorsToLeave.contains(constr))
+								rewrite.remove(md, null);
+							else
+							{
+								ChangeConstructorVisibilityToPrivate(constr,modifiedConstr);
+								return;
+							}
 						}
 						rewriteAST(cu, rewrite, importRewrite);
 
@@ -435,50 +769,6 @@ public class CreationMethodsRefactoring extends Refactoring {
 		}
 	}
 	
-	private boolean CheckIfConstructorIfSubsetOfOther(IMethod constr,ArrayList<IMethod> otherConstructors) {
-		String[] paramNames = null;
-		try {
-			paramNames = constr.getParameterNames();
-		} catch (JavaModelException e) {
-			ARefactorLogger.log(e);
-		}
-		String[] paramTypes = constr.getParameterTypes();
-
-		for (IMethod constructor : otherConstructors) {
-			if (constr != constructor) {
-				String[] otherParamNames = null;
-				try {
-					otherParamNames = constructor.getParameterNames();
-				} catch (JavaModelException e) {
-					ARefactorLogger.log(e);
-				}
-				String[] otherParamTypes = constructor.getParameterTypes();
-
-				int findedNames = 0;
-				int index = 0;
-				for (String checkParamName : paramNames) {
-					int nestedIndex = 0;
-					for (String pn : otherParamNames) {
-						if (checkParamName.equals(pn)) {
-							if (paramTypes[index].equals(otherParamTypes[nestedIndex])) {
-								findedNames++;
-							}
-						}
-						nestedIndex++;
-					}
-					index++;
-				}
-				if (findedNames != paramNames.length) {
-					continue;
-				} else {
-					replacedConstructors.put(constr, constructor);
-					return true;
-				}
-			}
-		}
-		return false;
-	}
-	
 	private boolean IsConstructorReplacedByAnother(IMethod rep) {
 		for (IMethod deletedConstr : replacedConstructors.keySet()) {
 			if (rep == deletedConstr) {
@@ -487,9 +777,8 @@ public class CreationMethodsRefactoring extends Refactoring {
 		}
 		return false;
 	}
-	
-	private void UpdateReferencesForReplacedConstructors() {
-		final ArrayList<MethodDeclaration> rewritedReplaceConstr = new ArrayList<MethodDeclaration>();
+
+	private void UpdateReferencesForReplacedConstructors(final ArrayList<MethodDeclaration> rewritedReplaceConstr) {
 		for (IMethod deletedConstr : replacedConstructors.keySet()) {
 			IMethod rep = replacedConstructors.get(deletedConstr);
 			while (IsConstructorReplacedByAnother(rep) != false) {
@@ -561,6 +850,8 @@ public class CreationMethodsRefactoring extends Refactoring {
 				
 				VariableDeclarationFragment vdf = ast.newVariableDeclarationFragment();
 				vdf.setInitializer(ast.newNullLiteral());
+				
+				//LOSOWE LITERKI DO NAZW!!!!
 				String code = repSvd.getName().getIdentifier().substring(0, 3);
 				vdf.setName(ast.newSimpleName(code));
 				VariableDeclarationStatement vds = ast.newVariableDeclarationStatement(vdf);
@@ -722,14 +1013,14 @@ public class CreationMethodsRefactoring extends Refactoring {
 		this.javaProject = javaProject;
 	}
 	
+	public void setUnitToRefactor(ICompilationUnit unitToRefactor) {
+		this.unitToRefactor = unitToRefactor;
+	}
+	
 	public static ASTNode getParent(ASTNode node, Class parentClass) {
 		do {
 			node = node.getParent();
 		} while (node != null && !parentClass.isInstance(node));
 		return node;
-	}
-
-	public void setUnitToRefactor(ICompilationUnit unitToRefactor) {
-		this.unitToRefactor = unitToRefactor;
 	}
 }

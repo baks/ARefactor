@@ -90,14 +90,14 @@ public class Search
 						ARefactorLogger.log("Checking if method is constructor");
 						if(method.isConstructor())
 						{
-							if(CheckIfClassConstructorAreReferenced(method,type))
-							{
+							//if(CheckIfClassConstructorAreReferenced(method,type))
+							//{
 								CreationMethod cm=new CreationMethod();
 								cm.setName("");
 								cm.setReplacedMethod(method);
 								constructorsForClass.add(cm);
 								count++;
-							}
+							//}
 						}
 					}
 					if(count>1)
