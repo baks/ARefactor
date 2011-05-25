@@ -42,7 +42,8 @@ public class ReferencesUpdater extends SearchRequestor {
 	
 	private ASTRequestor requestors = new ASTRequestor() {
 		@Override
-		public void acceptAST(ICompilationUnit source, CompilationUnit ast) {
+		public void acceptAST(ICompilationUnit source, CompilationUnit ast) 
+		{
 			compilationUnits.put(ast, source);
 		}
 	};
@@ -50,39 +51,48 @@ public class ReferencesUpdater extends SearchRequestor {
 	private IMethod searchedMethod;
 
 	public ReferencesUpdater(IJavaProject javaProject,LinkedHashMap<CompilationUnit,ICompilationUnit> compilationUnits,
-			IProgressMonitor monitor) {
+			IProgressMonitor monitor) 
+	{
 		this.compilationUnits=compilationUnits;
-		
 		ASTParser parser = ASTParser.newParser(AST.JLS3);
 		parser.setProject(javaProject);
 		parser.setResolveBindings(true);
 		parser.setKind(ASTParser.K_COMPILATION_UNIT);
 
-		try {
-			for (IPackageFragment packFrag : javaProject.getPackageFragments()) {
+		try 
+		{
+			for (IPackageFragment packFrag : javaProject.getPackageFragments()) 
+			{
 				parser.createASTs(packFrag.getCompilationUnits(),new String[0], requestors, 
 						new SubProgressMonitor(monitor, 3));
 			}
-		} catch (JavaModelException e) {
+		} 
+		catch (JavaModelException e) 
+		{
 			ARefactorLogger.log(e);
 		}
 	}
 
 	@SuppressWarnings("unchecked")
-	public void acceptSearchMatch(SearchMatch arg0) throws CoreException {
+	public void acceptSearchMatch(SearchMatch arg0) throws CoreException 
+	{
 		IJavaElement element = (IJavaElement) arg0.getElement();
 		ResolvedSourceMethod rsm = (ResolvedSourceMethod) element;
 		ICompilationUnit cu = rsm.getCompilationUnit();
-		for (CompilationUnit unit : compilationUnits.keySet()) {
-			if (compilationUnits.get(unit).equals(cu)) {
-
+		for (CompilationUnit unit : compilationUnits.keySet()) 
+		{
+			if (compilationUnits.get(unit).equals(cu)) 
+			{
 				ASTNode result = NodeFinder.perform(unit, arg0.getOffset(),arg0.getLength());
-				if (result != null) {
-					if (result instanceof SuperConstructorInvocation) {
+				if (result != null) 
+				{
+					if (result instanceof SuperConstructorInvocation) 
+					{
 						SuperConstructorInvocation sci = (SuperConstructorInvocation) result;
 						superConstr.add(searchedMethod);
 					}
-					if (result instanceof ClassInstanceCreation) {
+					if (result instanceof ClassInstanceCreation) 
+					{
 						ASTRewrite rewrite = ASTRewrite.create(unit.getAST());
 						ImportRewrite importRewrite = ImportRewrite.create(cu, true);
 
@@ -106,10 +116,9 @@ public class ReferencesUpdater extends SearchRequestor {
 						mi.setExpression(ast.newSimpleName(temp));
 						mi.setName(ast.newSimpleName(newMethod.getName().getIdentifier()));
 						
-						for (int index = 0; index < cic.arguments().size(); index++) {
+						for (int index = 0; index < cic.arguments().size(); index++)
 							mi.arguments().add(
 									rewrite.createMoveTarget((ASTNode) cic.arguments().get(index)));
-						}
 
 						ChildListPropertyDescriptor descriptor = null;
 						if (td instanceof AbstractTypeDeclaration)
@@ -130,17 +139,29 @@ public class ReferencesUpdater extends SearchRequestor {
 
 	}
 
-	public void setCreationMethods(
-			LinkedHashMap<IMethod, MethodDeclaration> creationMethods) {
+	public void setCreationMethods(LinkedHashMap<IMethod, MethodDeclaration> creationMethods) 
+	{
 		this.creationMethods = creationMethods;
 	}
 
-	public void setSearchedMethod(IMethod searchedMethod) {
+	public void setSearchedMethod(IMethod searchedMethod) 
+	{
 		this.searchedMethod = searchedMethod;
 	}
 
-	public ArrayList<IMethod> getSuperConstr() {
+	public ArrayList<IMethod> getSuperConstr() 
+	{
 		return superConstr;
+	}
+
+	public ArrayList<RewriteData> getRewriteData() 
+	{
+		return rewriteData;
+	}
+
+	public void setRewriteData(ArrayList<RewriteData> rewriteData) 
+	{
+		this.rewriteData = rewriteData;
 	}
 	
 	public class RewriteData
@@ -149,31 +170,29 @@ public class ReferencesUpdater extends SearchRequestor {
 		private ImportRewrite importRewrite;
 		private ICompilationUnit compilationUnit;
 		
-		public ASTRewrite getAstRewrite() {
+		public ASTRewrite getAstRewrite() 
+		{
 			return astRewrite;
 		}
-		public void setAstRewrite(ASTRewrite astRewrite) {
+		public void setAstRewrite(ASTRewrite astRewrite) 
+		{
 			this.astRewrite = astRewrite;
 		}
-		public ImportRewrite getImportRewrite() {
+		public ImportRewrite getImportRewrite() 
+		{
 			return importRewrite;
 		}
-		public void setImportRewrite(ImportRewrite importRewrite) {
+		public void setImportRewrite(ImportRewrite importRewrite) 
+		{
 			this.importRewrite = importRewrite;
 		}
-		public ICompilationUnit getCompilationUnit() {
+		public ICompilationUnit getCompilationUnit() 
+		{
 			return compilationUnit;
 		}
-		public void setCompilationUnit(ICompilationUnit compilationUnit) {
+		public void setCompilationUnit(ICompilationUnit compilationUnit) 
+		{
 			this.compilationUnit = compilationUnit;
 		}
-	}
-
-	public ArrayList<RewriteData> getRewriteData() {
-		return rewriteData;
-	}
-
-	public void setRewriteData(ArrayList<RewriteData> rewriteData) {
-		this.rewriteData = rewriteData;
 	}
 }

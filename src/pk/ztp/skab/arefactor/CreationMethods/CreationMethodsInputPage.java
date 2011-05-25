@@ -17,12 +17,12 @@ import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
 import org.eclipse.swt.widgets.Text;
 
-public class CreationMethodsInputPage extends UserInputWizardPage {
+public class CreationMethodsInputPage extends UserInputWizardPage 
+{
 
 	private LinkedHashMap<IType, ArrayList<CreationMethod>> constructors=new LinkedHashMap<IType, ArrayList<CreationMethod>>();
 	
-	public CreationMethodsInputPage(String name,LinkedHashMap<IType, 
-			ArrayList<CreationMethod>> constructors) 
+	public CreationMethodsInputPage(String name,LinkedHashMap<IType, ArrayList<CreationMethod>> constructors) 
 	{
 		super(name);
 		this.constructors=constructors;
@@ -42,10 +42,7 @@ public class CreationMethodsInputPage extends UserInputWizardPage {
 		folder.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, false));
 		
 		for(IType type : this.constructors.keySet())
-		{
-			CreateTabForClassAndItsConstructors(folder,type.getElementName(),
-					this.constructors.get(type));
-		}
+			CreateTabForClassAndItsConstructors(folder,type.getElementName(),this.constructors.get(type));
 		
 		folder.pack();
 		result.pack();
@@ -78,7 +75,8 @@ public class CreationMethodsInputPage extends UserInputWizardPage {
 		item.setControl(composite);
 	}
 	
-	private void createTextControlForConstructorSignature(Composite composite,IMethod method) {
+	private void createTextControlForConstructorSignature(Composite composite,IMethod method) 
+	{
 		Text constructorSignature=new Text(composite,SWT.MULTI | SWT.BORDER);
 		StringBuilder sb=new StringBuilder();
 		for(String paramType : method.getParameterTypes())
@@ -94,16 +92,17 @@ public class CreationMethodsInputPage extends UserInputWizardPage {
 	}
 	
 	private void createTextControlForCreationMethodName(Composite composite,final CreationMethod method,
-			final ArrayList<CreationMethod> constr) {
+			final ArrayList<CreationMethod> constr) 
+	{
 		final Text creationMethodName=new Text(composite,SWT.MULTI | SWT.BORDER);
 		creationMethodName.setText("create" + method.getReplacedMethod().getElementName());
 		setTextForMethod(constr,method,creationMethodName.getText());
 		creationMethodName.setLayoutData(new GridData(SWT.FILL,SWT.FILL,true,false));
 		
 		creationMethodName.addModifyListener(new ModifyListener() {
-			
 			@Override
-			public void modifyText(ModifyEvent arg0) {
+			public void modifyText(ModifyEvent arg0) 
+			{
 				setTextForMethod(constr,method,creationMethodName.getText());
 			}
 		});
@@ -114,9 +113,7 @@ public class CreationMethodsInputPage extends UserInputWizardPage {
 		for(CreationMethod method : constr)
 		{
 			if(method.getReplacedMethod()==cm.getReplacedMethod())
-			{
 				method.setName(text);
-			}
 		}
 	}
 	

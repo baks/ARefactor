@@ -38,42 +38,10 @@ public class Search
 		searchRequestor=new CountingSearchRequestor();
 		proposedClassesToRefactorUsingCreationMethods=new ArrayList<IType>();
 		classessWithConstructors=new LinkedHashMap<IType, ArrayList<CreationMethod>>();
-	//	try 
-	//	{
-			//this.packageFragments=javaProject.getPackageFragments();
-			//PopulateCompilationUnits();
-			FindClassWithMoreThanOneConstructor(unitToRefactor);
-//		} 
-//		catch (JavaModelException e) 
-//		{
-//			ARefactorLogger.log(e);
-//		}
+		findClassWithMoreThanOneConstructor(unitToRefactor);
 	}
 	
-//	private void PopulateCompilationUnits()
-//	{
-//		for(IPackageFragment pkcg : packageFragments)
-//		{
-//			try 
-//			{
-//				if(pkcg.getKind()==IPackageFragmentRoot.K_SOURCE)
-//				{
-//					ARefactorLogger.log("Checking compilation units in package : " + pkcg.getElementName());
-//					for(ICompilationUnit compilationUnit : pkcg.getCompilationUnits())
-//					{
-//						ARefactorLogger.log("Added CUnit : " + compilationUnit.getElementName());
-//						allUnitsProject.add(compilationUnit);
-//					}
-//				}
-//			} 
-//			catch (JavaModelException e) 
-//			{
-//				ARefactorLogger.log(e);
-//			}
-//		}
-//	}
-	
-	private void FindClassWithMoreThanOneConstructor(ICompilationUnit compilationUnit)
+	private void findClassWithMoreThanOneConstructor(ICompilationUnit compilationUnit)
 	{
 		try 
 		{
@@ -90,14 +58,11 @@ public class Search
 						ARefactorLogger.log("Checking if method is constructor");
 						if(method.isConstructor())
 						{
-							//if(CheckIfClassConstructorAreReferenced(method,type))
-							//{
-								CreationMethod cm=new CreationMethod();
-								cm.setName("");
-								cm.setReplacedMethod(method);
-								constructorsForClass.add(cm);
-								count++;
-							//}
+							CreationMethod cm=new CreationMethod();
+							cm.setName("");
+							cm.setReplacedMethod(method);
+							constructorsForClass.add(cm);
+							count++;
 						}
 					}
 					if(count>1)
@@ -138,7 +103,6 @@ public class Search
 	
 	public void searchProjectForReferences(SearchPattern pattern,SearchRequestor requestor)
 	{
-		//SearchPattern pattern=SearchPattern.createPattern(method, IJavaSearchConstants.REFERENCES);
 		try 
 		{
 			searchEngine.search(pattern, new SearchParticipant[] { SearchEngine.getDefaultSearchParticipant()}, 
@@ -163,12 +127,14 @@ public class Search
 		}
 	}
 
-	public LinkedHashMap<IType, ArrayList<CreationMethod>> getClassessWithConstructors() {
+	public LinkedHashMap<IType, ArrayList<CreationMethod>> getClassessWithConstructors() 
+	{
 		return classessWithConstructors;
 	}
 
 	public void setClassessWithConstructors(
-			LinkedHashMap<IType, ArrayList<CreationMethod>> classessWithConstructors) {
+			LinkedHashMap<IType, ArrayList<CreationMethod>> classessWithConstructors) 
+	{
 		this.classessWithConstructors = classessWithConstructors;
 	}
 }

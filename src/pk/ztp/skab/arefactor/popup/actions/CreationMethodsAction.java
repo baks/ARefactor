@@ -1,24 +1,11 @@
 package pk.ztp.skab.arefactor.popup.actions;
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
 import java.io.PrintWriter;
-import java.io.StringBufferInputStream;
 import java.io.StringWriter;
 import java.io.Writer;
-import java.util.logging.FileHandler;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 
-import org.eclipse.core.resources.IProject;
-import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IJavaProject;
-import org.eclipse.jdt.core.IPackageFragment;
-import org.eclipse.jdt.core.IPackageFragmentRoot;
-import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.dialogs.MessageDialog;
@@ -56,7 +43,8 @@ public class CreationMethodsAction implements IWorkbenchWindowActionDelegate
 	}
 	
 	@Override
-	public void init(IWorkbenchWindow arg0) {
+	public void init(IWorkbenchWindow arg0) 
+	{
 		fWindow=arg0;
 	}
 
@@ -75,13 +63,16 @@ public class CreationMethodsAction implements IWorkbenchWindowActionDelegate
 	{
 		ARefactorLogger.log( "Started searching java project to classes to apply creation methods refactor in project : " + this.project.getElementName());
 		Search search=new Search(this.project,this.selectedUnit);
-		try {
+		try 
+		{
 			if(search.getClassessWithConstructors().isEmpty() || !this.selectedUnit.isStructureKnown())
 			{
 				MessageDialog.openInformation(shell, "Information", "Can't apply creation methods refactoring to this class");
 				return;
 			}
-		} catch (JavaModelException e) {
+		} 
+		catch (JavaModelException e) 
+		{
 			ARefactorLogger.log(e);
 		}
 		ARefactorLogger.log("End searching classess to apply creation methods refactor in project : " + this.project.getElementName());
@@ -103,7 +94,8 @@ public class CreationMethodsAction implements IWorkbenchWindowActionDelegate
 		run(new CreationMethodsWizard(cmr, "Creation Methods Refactoring",search.getClassessWithConstructors()),"Creation Methods Refactoring");
 	}
 	
-	public void run(RefactoringWizard wizard, String dialogTitle) {
+	public void run(RefactoringWizard wizard, String dialogTitle) 
+	{
 		try 
 		{
 			RefactoringWizardOpenOperation operation= new RefactoringWizardOpenOperation(wizard);
@@ -127,7 +119,8 @@ public class CreationMethodsAction implements IWorkbenchWindowActionDelegate
 	/**
 	 * @see IActionDelegate#selectionChanged(IAction, ISelection)
 	 */
-	public void selectionChanged(IAction action, ISelection selection) {
+	public void selectionChanged(IAction action, ISelection selection) 
+	{
 		if (selection instanceof IStructuredSelection) {
 			   Object[] selectedObjects = ((IStructuredSelection)selection).toArray();
 			   for(Object obj : selectedObjects)
@@ -136,32 +129,14 @@ public class CreationMethodsAction implements IWorkbenchWindowActionDelegate
 				   {
 					   ARefactorLogger.log(((ICompilationUnit)obj).getElementName());
 					   this.selectedUnit=(ICompilationUnit)obj;
-					   
 					   this.project=this.selectedUnit.getJavaProject();
 				   }
 			   }
 			}
 	}
-	
-	private Boolean checkIfProjectIsJavaProject(IProject project)
-	{
-		try 
-		{
-			if (project.isNatureEnabled("org.eclipse.jdt.core.javanature")) 
-			{
-				return true;
-			}
-		} 
-		catch (CoreException e) 
-		{
-			ARefactorLogger.log(e);
-		}
-		return false;
-	}
 
 	@Override
-	public void dispose() {
-	}
+	public void dispose() {}
 
 	private void GetWorkbenchWindow()
 	{

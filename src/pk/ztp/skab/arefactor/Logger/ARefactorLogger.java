@@ -16,11 +16,13 @@ public class ARefactorLogger
 {
     private ARefactorLogger() {}
  
-    public static void log(Exception e) {
+    public static void log(Exception e) 
+    {
     	AutomaticRefactorPlugin.getDefault().getLog().log(new Status(IStatus.ERROR,"ARefactor",e.getMessage(),e));
     }
     
-    public static void log(String s) {
+    public static void log(String s) 
+    {
     	AutomaticRefactorPlugin.getDefault().getLog().log(new Status(IStatus.INFO,"ARefactor",s));
     }
 }

@@ -8,7 +8,8 @@ import org.eclipse.jdt.core.IType;
 import org.eclipse.ltk.core.refactoring.Refactoring;
 import org.eclipse.ltk.ui.refactoring.RefactoringWizard;
 
-public class CreationMethodsWizard extends RefactoringWizard {
+public class CreationMethodsWizard extends RefactoringWizard 
+{
 
 	private LinkedHashMap<IType,ArrayList<CreationMethod>> constructors;
 	

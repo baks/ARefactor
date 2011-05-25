@@ -2,24 +2,29 @@ package pk.ztp.skab.arefactor.CreationMethods;
 
 import org.eclipse.jdt.core.IMethod;
 
-public class CreationMethod {
+public class CreationMethod 
+{
 
 	private IMethod replacedMethod;
 	private String name;
 	
-	public IMethod getReplacedMethod() {
+	public IMethod getReplacedMethod() 
+	{
 		return replacedMethod;
 	}
 	
-	public void setReplacedMethod(IMethod replacedMethod) {
+	public void setReplacedMethod(IMethod replacedMethod) 
+	{
 		this.replacedMethod = replacedMethod;
 	}
 	
-	public String getName() {
+	public String getName() 
+	{
 		return name;
 	}
 	
-	public void setName(String name) {
+	public void setName(String name) 
+	{
 		this.name = name;
 	}
 }

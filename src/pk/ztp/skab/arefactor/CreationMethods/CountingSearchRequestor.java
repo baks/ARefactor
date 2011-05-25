@@ -25,11 +25,13 @@ public class CountingSearchRequestor extends SearchRequestor
 			ARefactorLogger.log("Found in element :" + arg0.getElement().toString());
 	}
 
-	public boolean getHasMatches() {
+	public boolean getHasMatches() 
+	{
 		return hasMatches;
 	}
 
-	public void setConstructorClass(String constructorClass) {
+	public void setConstructorClass(String constructorClass) 
+	{
 		this.constructorClass = constructorClass;
 	}
 
