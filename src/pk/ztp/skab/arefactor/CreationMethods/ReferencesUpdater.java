@@ -22,6 +22,7 @@ import org.eclipse.jdt.core.dom.ClassInstanceCreation;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.MethodInvocation;
+import org.eclipse.jdt.core.dom.QualifiedName;
 import org.eclipse.jdt.core.dom.SuperConstructorInvocation;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
@@ -113,7 +114,28 @@ public class ReferencesUpdater extends SearchRequestor {
 						String temp = importRewrite.addImport(
 								searchedMethod.getDeclaringType().getFullyQualifiedName());
 
-						mi.setExpression(ast.newSimpleName(temp));
+						if(temp.contains("."))
+						{
+							String[] qualifiedNameElements=temp.split("\\.");
+							int trueLength=qualifiedNameElements.length-1;
+							QualifiedName qn=null;
+							for(int i=0; i<trueLength; i++)
+							{
+								if(i==0)
+								{
+									qn=ast.newQualifiedName(ast.newSimpleName(qualifiedNameElements[i]), 
+										ast.newSimpleName(qualifiedNameElements[i+1]));
+								}
+								else
+									qn=ast.newQualifiedName(qn, ast.newSimpleName(qualifiedNameElements[i+1]));
+							}
+							mi.setExpression(qn);
+						}
+						else
+						{						
+							mi.setExpression(ast.newSimpleName(temp));
+						}
+						
 						mi.setName(ast.newSimpleName(newMethod.getName().getIdentifier()));
 						
 						for (int index = 0; index < cic.arguments().size(); index++)
